@@ -8,7 +8,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # ubuntu-latest (26.04) no longer provides Python 3.9 via setup-python; 22.04 covers 3.9-3.13.
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
