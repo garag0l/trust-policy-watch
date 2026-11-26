@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "trust-policy-watch"
+dynamic = ["version"]
+description = "Detect drift and persistence in AWS IAM role trust policies: snapshot every role's AssumeRolePolicyDocument and diff it over time to catch added principals, new cross-account/public trust and dropped ExternalId/MFA conditions (the iam:UpdateAssumeRolePolicy persistence technique)."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [{ name = "Murat Bekgi" }]
+keywords = ["aws", "iam", "security", "cloud-security", "trust-policy", "assume-role", "persistence", "drift-detection", "incident-response", "sarif"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Information Technology",
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+]
+dependencies = []
+
+[project.optional-dependencies]
+live = ["boto3>=1.26"]
+dev = ["pytest>=8", "ruff>=0.6", "boto3>=1.26", "moto[iam]>=5.0"]
+
+[project.urls]
+Homepage = "https://github.com/garag0l/trust-policy-watch"
+Issues = "https://github.com/garag0l/trust-policy-watch/issues"
+Changelog = "https://github.com/garag0l/trust-policy-watch/blob/main/CHANGELOG.md"
+
+[project.scripts]
+trust-policy-watch = "trust_policy_watch.cli:main"
+
+[tool.hatch.version]
+path = "src/trust_policy_watch/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trust_policy_watch"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py39"
+extend-exclude = ["tests/fixtures"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]

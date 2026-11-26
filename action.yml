@@ -1,0 +1,55 @@
+name: "trust-policy-watch"
+description: "Diff AWS IAM role trust policies against a committed baseline to detect drift and persistence (read-only)."
+branding:
+  icon: "shield"
+  color: "red"
+
+inputs:
+  baseline:
+    description: "Path to the committed baseline JSON produced by 'trust-policy-watch snapshot'."
+    required: true
+  gaad:
+    description: "Path to a get-account-authorization-details JSON file (offline mode)."
+    required: false
+    default: ""
+  live:
+    description: "Set to 'true' to read the live account via boto3 (requires AWS credentials configured in the job)."
+    required: false
+    default: "false"
+  fail-on:
+    description: "Exit non-zero if any finding is at or above this severity."
+    required: false
+    default: "high"
+  format:
+    description: "Output format: text, json, or sarif."
+    required: false
+    default: "sarif"
+  output:
+    description: "Write the report to this file (optional)."
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install trust-policy-watch
+      shell: bash
+      run: |
+        if [ "${{ inputs.live }}" = "true" ]; then
+          python -m pip install --upgrade "trust-policy-watch[live]"
+        else
+          python -m pip install --upgrade "trust-policy-watch"
+        fi
+    - name: Run diff
+      shell: bash
+      run: |
+        ARGS=(diff --baseline "${{ inputs.baseline }}" --fail-on "${{ inputs.fail-on }}" -f "${{ inputs.format }}")
+        if [ "${{ inputs.live }}" = "true" ]; then
+          ARGS+=(--live)
+        else
+          ARGS+=(--gaad "${{ inputs.gaad }}")
+        fi
+        if [ -n "${{ inputs.output }}" ]; then
+          ARGS+=(-o "${{ inputs.output }}")
+        fi
+        trust-policy-watch "${ARGS[@]}"

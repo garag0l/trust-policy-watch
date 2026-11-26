@@ -1,0 +1,37 @@
+{
+  "RoleDetailList": [
+    {
+      "RoleName": "app-service-role",
+      "Arn": "arn:aws:iam::111111111111:role/app-service-role",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": { "Service": "ec2.amazonaws.com" },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      }
+    },
+    {
+      "RoleName": "vendor-integration-role",
+      "Arn": "arn:aws:iam::111111111111:role/vendor-integration-role",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": [
+                "arn:aws:iam::222222222222:root",
+                "arn:aws:iam::999999999999:root"
+              ]
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      }
+    }
+  ]
+}
