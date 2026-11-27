@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trust Policy Inspector</title>
+<meta name="description" content="Paste an IAM role trust policy and see who can assume it and which protective conditions are missing. Runs in your browser — no credentials, nothing uploaded.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f4f5f7; --surface: #ffffff; --fg: #1a2230; --muted: #5d6675;
+    --faint: #eceef2; --line: #d8dce3; --accent: #d9731a; --accent-weak: #fbeedd;
+    --accent-ink: #9a4e09;
+    --crit: #c0362c; --crit-bg: #fae8e6; --high: #d9731a; --high-bg: #fbeedd;
+    --med: #b7860b; --med-bg: #faf1d6; --info: #4a6a8a; --info-bg: #e8eef4; --ok: #1f8a5b; --ok-bg: #e6f3ec;
+    --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11151c; --surface: #171d26; --fg: #e4e8ef; --muted: #98a2b3;
+      --faint: #1e2530; --line: #2a3340; --accent: #f0943f; --accent-weak: #2a2015;
+      --accent-ink: #f6b877;
+      --crit: #ec6a60; --crit-bg: #2c1716; --high: #f0943f; --high-bg: #2a2015;
+      --med: #e0b64a; --med-bg: #272012; --info: #7fa6cc; --info-bg: #15202c; --ok: #4cb584; --ok-bg: #14241c;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #11151c; --surface: #171d26; --fg: #e4e8ef; --muted: #98a2b3;
+    --faint: #1e2530; --line: #2a3340; --accent: #f0943f; --accent-weak: #2a2015;
+    --accent-ink: #f6b877;
+    --crit: #ec6a60; --crit-bg: #2c1716; --high: #f0943f; --high-bg: #2a2015;
+    --med: #e0b64a; --med-bg: #272012; --info: #7fa6cc; --info-bg: #15202c; --ok: #4cb584; --ok-bg: #14241c;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-body); line-height: 1.5; }
+  .wrap { max-width: 50rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 2.5rem 3.5rem; }
+  header { margin-bottom: 1.5rem; }
+  .brandline { display: inline-flex; align-items: center; gap: .5rem; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
+  .dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--accent); }
+  h1 { font-family: var(--font-display); font-size: clamp(1.8rem, 5.5vw, 2.5rem); line-height: 1.05; letter-spacing: -.02em; margin: .5rem 0 .4rem; text-wrap: balance; }
+  .sub { color: var(--muted); font-size: 1rem; max-width: 40rem; margin: 0; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-top: 1.25rem; }
+  .phead { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .7rem .95rem; border-bottom: 1px solid var(--line); background: var(--faint); }
+  .plabel { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  textarea { width: 100%; border: 0; background: transparent; color: var(--fg); font-family: var(--font-mono); font-size: .9rem; line-height: 1.5; padding: .95rem; resize: vertical; min-height: 11rem; }
+  textarea:focus-visible { outline: none; }
+  .controls { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; padding: .7rem .95rem; border-top: 1px solid var(--line); }
+  .acct { display: flex; align-items: center; gap: .5rem; font-size: .85rem; color: var(--muted); }
+  .acct input { font-family: var(--font-mono); font-size: .85rem; width: 9rem; max-width: 45vw; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--fg); }
+  .acct input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .spacer { flex: 1; }
+  .chip-btn { appearance: none; cursor: pointer; font-family: var(--font-body); font-size: .82rem; font-weight: 600; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: .4rem .7rem; }
+  .chip-btn:hover { border-color: var(--accent); }
+  .chip-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .examples { margin-top: 1rem; }
+  .examples .plabel { display: block; margin-bottom: .5rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+  .verdict { display: flex; align-items: center; gap: .75rem; padding: .9rem .95rem; font-weight: 600; font-family: var(--font-display); }
+  .verdict .score { font-size: 1.1rem; }
+  .sev-pill { font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: .22rem .55rem; border-radius: 999px; white-space: nowrap; }
+  .sev-critical { color: var(--crit); background: var(--crit-bg); }
+  .sev-high { color: var(--high); background: var(--high-bg); }
+  .sev-medium { color: var(--med); background: var(--med-bg); }
+  .sev-info { color: var(--info); background: var(--info-bg); }
+  .sev-ok { color: var(--ok); background: var(--ok-bg); }
+
+  .finding { display: flex; gap: .75rem; padding: .8rem .95rem; border-top: 1px solid var(--line); }
+  .finding:first-child { border-top: 0; }
+  .finding .body { min-width: 0; }
+  .finding .code { font-family: var(--font-mono); font-size: .72rem; color: var(--muted); letter-spacing: .03em; }
+  .finding h3 { margin: .15rem 0 .2rem; font-size: .98rem; font-family: var(--font-display); }
+  .finding p { margin: 0; color: var(--muted); font-size: .9rem; word-break: break-word; }
+  .finding .fix { margin-top: .35rem; color: var(--fg); font-size: .88rem; }
+  .finding .fix b { color: var(--accent-ink); font-weight: 600; }
+
+  .facts { padding: .5rem .95rem .95rem; display: grid; grid-template-columns: 1fr; gap: .55rem; }
+  .fact { display: flex; gap: .6rem; flex-wrap: wrap; align-items: baseline; }
+  .fact .k { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); min-width: 9rem; font-weight: 600; }
+  .fact .v { font-family: var(--font-mono); font-size: .85rem; word-break: break-word; min-width: 0; }
+  .tag { display: inline-block; font-family: var(--font-mono); font-size: .78rem; padding: .12rem .45rem; border-radius: 6px; background: var(--faint); border: 1px solid var(--line); margin: .1rem .25rem .1rem 0; }
+  .tag.warn { color: var(--crit); background: var(--crit-bg); border-color: transparent; }
+  .tag.good { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
+  .muted { color: var(--muted); }
+  .error { color: var(--crit); padding: .9rem .95rem; font-size: .92rem; }
+
+  footer { margin-top: 2.25rem; color: var(--muted); font-size: .82rem; border-top: 1px solid var(--line); padding-top: 1.1rem; }
+  footer a { color: var(--accent-ink); text-decoration: none; font-weight: 600; }
+  footer a:hover { text-decoration: underline; }
+  .safe-note { margin-top: .6rem; font-size: .8rem; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="brandline"><span class="dot"></span>trust-policy-watch · browser inspector</span>
+    <h1>Trust Policy Inspector</h1>
+    <p class="sub">Paste an IAM role <strong>trust policy</strong> (the <code>AssumeRolePolicyDocument</code>) and see who can assume the role and which confused-deputy protections are missing. Runs entirely in your browser — <strong>no AWS credentials, nothing uploaded</strong>.</p>
+  </header>
+
+  <div class="panel">
+    <div class="phead"><span class="plabel">Trust policy JSON</span></div>
+    <textarea id="input" spellcheck="false" placeholder='{ "Version": "2012-10-17", "Statement": [ { "Effect": "Allow", "Principal": { "AWS": "arn:aws:iam::123456789012:root" }, "Action": "sts:AssumeRole" } ] }'></textarea>
+    <div class="controls">
+      <label class="acct">This role’s account ID
+        <input id="acct" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="optional, 12 digits">
+      </label>
+      <span class="spacer"></span>
+      <button class="chip-btn" id="clear" type="button">Clear</button>
+    </div>
+  </div>
+
+  <div class="examples">
+    <span class="plabel">Load an example</span>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="panel" id="result" hidden>
+    <div class="verdict" id="verdict"></div>
+    <div id="findings"></div>
+    <div class="phead" style="border-top:1px solid var(--line)"><span class="plabel">What the policy says</span></div>
+    <div class="facts" id="facts"></div>
+  </div>
+
+  <footer>
+    Logic ported from <a href="https://github.com/garag0l/trust-policy-watch" target="_blank" rel="noopener">trust-policy-watch</a>,
+    an open-source IAM trust-policy drift detector by Murat Bekgi (MIT). This page is a read-only single-policy
+    inspector; the full tool snapshots roles across an account and alerts on <em>drift</em> (TPW-001…006) in CI.
+    <div class="safe-note">Severity here is static guidance on one policy, not an account-wide audit. A cross-account trust may be entirely intended — the point is to make it visible.</div>
+  </footer>
+</div>
+
+<script>
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+
+  // ---- ported from trust_policy_watch/trust.py ----
+  const ARN_ACCOUNT_RE = /arn:aws[a-z-]*:[^:]*:[^:]*:(\d{12}):/;
+  const BARE_ACCOUNT_RE = /^\d{12}$/;
+  const PROTECTION_KEYS = {
+    "sts:externalid": "ExternalId",
+    "aws:multifactorauthpresent": "MFA",
+    "aws:sourcearn": "SourceArn",
+    "aws:sourceaccount": "SourceAccount",
+  };
+  const asList = (v) => (v == null ? [] : Array.isArray(v) ? v.slice() : [v]);
+  function accountIdOf(v) {
+    if (typeof v !== "string" || v === "*") return null;
+    const m = ARN_ACCOUNT_RE.exec(v);
+    if (m) return m[1];
+    if (BARE_ACCOUNT_RE.test(v)) return v;
+    return null;
+  }
+  function conditionKeys(cond) {
+    const keys = new Set();
+    if (cond && typeof cond === "object" && !Array.isArray(cond)) {
+      for (const kv of Object.values(cond)) {
+        if (kv && typeof kv === "object" && !Array.isArray(kv)) {
+          for (const k of Object.keys(kv)) keys.add(k);
+        }
+      }
+    }
+    return keys;
+  }
+  function protections(keys) {
+    const found = new Set();
+    for (const k of keys) {
+      const name = PROTECTION_KEYS[String(k).toLowerCase()];
+      if (name) found.add(name);
+    }
+    return found;
+  }
+  function normalizeStatement(st) {
+    const principal = st.Principal != null ? st.Principal : {};
+    const aws = [], services = [], federated = [];
+    let wildcard = false;
+    if (principal === "*") {
+      wildcard = true;
+    } else if (principal && typeof principal === "object" && !Array.isArray(principal)) {
+      for (const [key, raw] of Object.entries(principal)) {
+        for (const value of asList(raw)) {
+          if (value === "*") wildcard = true;
+          if (key === "AWS") aws.push(value);
+          else if (key === "Service") services.push(value);
+          else if (key === "Federated") federated.push(value);
+        }
+      }
+    }
+    const keys = conditionKeys(st.Condition || {});
+    return {
+      effect: st.Effect || "Allow",
+      actions: [...new Set(asList(st.Action))].sort(),
+      aws_principals: [...new Set(aws)].sort(),
+      service_principals: [...new Set(services)].sort(),
+      federated_principals: [...new Set(federated)].sort(),
+      wildcard,
+      condition_keys: [...keys].sort(),
+    };
+  }
+  function normalizeTrust(doc) {
+    if (!doc || typeof doc !== "object" || Array.isArray(doc)) doc = {};
+    const statements = asList(doc.Statement).filter((s) => s && typeof s === "object").map(normalizeStatement);
+    const collect = (f) => [...new Set(statements.flatMap((s) => s[f]))].sort();
+    const aws_principals = collect("aws_principals");
+    const condition_keys = [...new Set(statements.flatMap((s) => s.condition_keys))].sort();
+    const accounts = [...new Set(aws_principals.map(accountIdOf).filter(Boolean))].sort();
+    return {
+      aws_principals,
+      service_principals: collect("service_principals"),
+      federated_principals: collect("federated_principals"),
+      wildcard: statements.some((s) => s.wildcard),
+      accounts,
+      condition_keys,
+      protections: [...protections(new Set(condition_keys))].sort(),
+      statements,
+    };
+  }
+
+  // ---- single-policy posture (grounded in TPW-001/004/005 intent) ----
+  const SEV_ORDER = { critical: 0, high: 1, medium: 2, info: 3, ok: 4 };
+  function assess(n, roleAccount) {
+    const f = [];
+    const prot = new Set(n.protections);
+    if (n.wildcard) {
+      f.push(["TPW-001", "critical", "Public (wildcard) principal",
+        'The policy allows principal "*" — the role is assumable by any AWS account.',
+        'Remove the "*" principal and scope trust to specific account IDs or role ARNs.']);
+    }
+    const external = roleAccount ? n.accounts.filter((a) => a !== roleAccount) : n.accounts;
+    const sameOnly = roleAccount && n.accounts.length > 0 && external.length === 0;
+    const hasId = prot.has("ExternalId") || prot.has("MFA");
+    if (!n.wildcard && n.aws_principals.length > 0) {
+      if (external.length > 0 && !hasId) {
+        f.push(["TPW-004", "high", "Cross-account trust with no ExternalId or MFA",
+          `External account(s) ${external.join(", ")} can assume this role and no ExternalId or MFA condition guards it (confused-deputy risk).`,
+          "Add an sts:ExternalId or aws:MultiFactorAuthPresent condition, or confirm the cross-account trust is intended."]);
+      } else if (external.length > 0 && hasId) {
+        f.push(["TPW-004", "info", "Cross-account trust, guarded",
+          `External account(s) ${external.join(", ")} can assume this role, protected by ${[...prot].filter((p) => p === "ExternalId" || p === "MFA").join("/")}.`,
+          "Looks intentional and guarded — verify the account(s) are expected."]);
+      } else if (sameOnly) {
+        f.push(["TPW-003", "info", "Same-account trust",
+          `Trust is limited to this role's own account (${roleAccount}).`,
+          "Normal for intra-account roles — no action needed if expected."]);
+      }
+    }
+    const hasSource = prot.has("SourceArn") || prot.has("SourceAccount");
+    if (n.service_principals.length > 0 && !hasSource) {
+      f.push(["TPW-005", "medium", "Service principal without SourceArn/SourceAccount",
+        `Service principal(s) ${n.service_principals.join(", ")} can assume this role with no aws:SourceArn / aws:SourceAccount condition (confused-deputy risk).`,
+        "Add an aws:SourceArn or aws:SourceAccount condition tying the trust to the intended resource/account."]);
+    }
+    for (const fed of n.federated_principals) {
+      f.push(["TPW-003", "info", "Federated principal",
+        `Federated identity provider ${fed} can assume this role.`,
+        "Verify the SAML/OIDC provider and its condition keys (aud/sub) are correct."]);
+    }
+    if (f.length === 0 && (n.aws_principals.length || n.service_principals.length || n.federated_principals.length)) {
+      f.push(["", "ok", "No obvious trust-policy risks found",
+        "No wildcard principal, and the principals present are guarded or same-account.",
+        "Still confirm every trusted principal is one you expect."]);
+    }
+    f.sort((a, b) => SEV_ORDER[a[1]] - SEV_ORDER[b[1]]);
+    return f;
+  }
+
+  const SEV_LABEL = { critical: "Critical", high: "High", medium: "Medium", info: "Info", ok: "Clean" };
+  function worst(findings) {
+    for (const s of ["critical", "high", "medium", "info", "ok"]) if (findings.some((f) => f[1] === s)) return s;
+    return "ok";
+  }
+  function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+  function tagList(items, cls) {
+    if (!items.length) return '<span class="muted">none</span>';
+    return items.map((i) => `<span class="tag${cls ? " " + cls : ""}">${esc(i)}</span>`).join("");
+  }
+
+  function render() {
+    const raw = $("input").value.trim();
+    const result = $("result");
+    if (!raw) { result.hidden = true; return; }
+    result.hidden = false;
+    let doc;
+    try { doc = JSON.parse(raw); }
+    catch (e) {
+      $("verdict").innerHTML = "";
+      $("findings").innerHTML = `<div class="error">Not valid JSON — ${esc(e.message)}. Paste the trust policy document (the object with "Statement").</div>`;
+      $("facts").innerHTML = "";
+      return;
+    }
+    const roleAccount = ($("acct").value.match(/\d{12}/) || [""])[0];
+    const n = normalizeTrust(doc);
+    const findings = assess(n, roleAccount);
+    const w = worst(findings);
+
+    $("verdict").innerHTML =
+      `<span class="sev-pill sev-${w}">${SEV_LABEL[w]}</span>` +
+      `<span class="score">${findings.filter((f) => f[1] !== "ok").length || "No"} issue${findings.filter((f) => f[1] !== "ok").length === 1 ? "" : "s"} flagged</span>`;
+
+    $("findings").innerHTML = findings.map((f) => `
+      <div class="finding">
+        <span class="sev-pill sev-${f[1]}">${SEV_LABEL[f[1]]}</span>
+        <div class="body">
+          ${f[0] ? `<div class="code">${f[0]}</div>` : ""}
+          <h3>${esc(f[2])}</h3>
+          <p>${esc(f[3])}</p>
+          <div class="fix"><b>Fix:</b> ${esc(f[4])}</div>
+        </div>
+      </div>`).join("");
+
+    const protAll = ["ExternalId", "MFA", "SourceArn", "SourceAccount"];
+    const protHtml = protAll.map((p) => n.protections.includes(p)
+      ? `<span class="tag good">${p} ✓</span>` : `<span class="tag">${p} —</span>`).join("");
+    $("facts").innerHTML = [
+      ["Public (wildcard)", n.wildcard ? '<span class="tag warn">YES — "*"</span>' : '<span class="tag good">no</span>'],
+      ["AWS principals", tagList(n.aws_principals)],
+      ["Trusted accounts", tagList(n.accounts)],
+      ["Service principals", tagList(n.service_principals)],
+      ["Federated", tagList(n.federated_principals)],
+      ["Protective conditions", protHtml],
+      ["All condition keys", tagList(n.condition_keys)],
+    ].map(([k, v]) => `<div class="fact"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+  }
+
+  const EXAMPLES = {
+    "Public wildcard": { acct: "", doc: { Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: "*", Action: "sts:AssumeRole" }] } },
+    "Cross-account, no ExternalId": { acct: "111111111111", doc: { Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { AWS: "arn:aws:iam::999888777666:root" }, Action: "sts:AssumeRole" }] } },
+    "Cross-account + ExternalId": { acct: "111111111111", doc: { Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { AWS: "arn:aws:iam::999888777666:root" }, Action: "sts:AssumeRole", Condition: { StringEquals: { "sts:ExternalId": "shared-secret-123" } } }] } },
+    "Lambda service role": { acct: "", doc: { Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { Service: "lambda.amazonaws.com" }, Action: "sts:AssumeRole" }] } },
+  };
+
+  const chips = $("chips");
+  for (const [name, ex] of Object.entries(EXAMPLES)) {
+    const b = document.createElement("button");
+    b.className = "chip-btn"; b.type = "button"; b.textContent = name;
+    b.addEventListener("click", () => {
+      $("input").value = JSON.stringify(ex.doc, null, 2);
+      $("acct").value = ex.acct;
+      render();
+      $("result").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    chips.appendChild(b);
+  }
+
+  $("input").addEventListener("input", render);
+  $("acct").addEventListener("input", render);
+  $("clear").addEventListener("click", () => { $("input").value = ""; $("acct").value = ""; render(); $("input").focus(); });
+</script>
+</body>
+</html>
