@@ -15,6 +15,8 @@ machine-readable output (JSON / SARIF).
 
 It is **read-only** and never modifies anything in your account.
 
+> 🌐 **Inspect a single policy in your browser** — [Trust Policy Inspector](https://garag0l.github.io/trust-policy-watch/): paste one role's trust policy and see who can assume it and which protective conditions are missing. No install, no AWS credentials, nothing uploaded.
+
 ## Why trust policies
 
 The trust policy is the lock on a role. Monitoring attached *permission*
